@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
             name='RecipeGroup',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('current_recipe', models.OneToOneField(null=True, on_delete=django.db.models.deletion.SET_NULL, to='api.recipe')),
+                ('current_recipe', models.OneToOneField(null=True, on_delete=django.db.models.deletion.SET_NULL, to='recipes.recipe')),
                 ('django_group', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to='auth.group')),
             ],
         ),
