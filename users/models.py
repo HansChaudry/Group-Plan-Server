@@ -5,4 +5,5 @@ from django.contrib.auth.models import AbstractUser
 
 
 class CustomUser(AbstractUser):
-    votedRecipe = models.IntegerField(default=0)
+    votedRecipe = models.IntegerField(default=0, null=True)
+    email = models.EmailField('email address', blank=False)
