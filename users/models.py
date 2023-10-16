@@ -10,3 +10,4 @@ class CustomUser(AbstractUser):
     email = models.EmailField('email address', blank=False, unique=True)
     first_name = models.CharField('first name', blank=False)
     last_name = models.CharField('last name', blank=False)
+    profileIMG = models.CharField(max_length=300, blank=True)

@@ -17,6 +17,7 @@ class CustomUserAdmin(UserAdmin):
             {
                 'fields': (
                     'votedRecipe',
+                    'profileIMG'
                 )
             }
         )
