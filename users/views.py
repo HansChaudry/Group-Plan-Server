@@ -1,19 +1,17 @@
 import json
-from django.contrib.auth import login, logout, authenticate, get_user_model
+from django.contrib.auth import login, logout, authenticate
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.db.models import QuerySet
-from django.http import JsonResponse, HttpRequest
+from django.http import JsonResponse, HttpRequest, HttpResponse
 from django.contrib.auth.forms import AuthenticationForm
 from .forms import CustomUserCreationForm
-from django.http import HttpResponse
-from django.core import serializers
 from http import HTTPStatus
 from django.forms.models import model_to_dict
 from django.core.validators import validate_email
 from django.core import serializers
 # Create your views here.
-from .models import CustomUser
 
+from .models import CustomUser
 
 def register(request):
     form = CustomUserCreationForm(request.POST)
@@ -27,8 +25,7 @@ def userLogIn(request):
     form = AuthenticationForm(request.POST)
     user = authenticate(
         username=request.POST.get('username'),
-        password=request.POST.get('password')
-    )
+        password=request.POST.get('password'))
     if user is not None:
         login(request, user)
         return JsonResponse(json.loads(serializers.serialize('json', [user]).strip('[]')))
