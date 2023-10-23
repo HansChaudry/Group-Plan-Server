@@ -22,10 +22,13 @@ def register(request):
 
 
 def userLogIn(request):
+
+    user_info: dict = json.loads(request.body)
     form = AuthenticationForm(request.POST)
+    print(user_info)
     user = authenticate(
-        username=request.POST.get('username'),
-        password=request.POST.get('password'))
+        username=user_info.get("username"),
+        password=user_info.get('password'))
     if user is not None:
         login(request, user)
         return JsonResponse(json.loads(serializers.serialize('json', [user]).strip('[]')))
