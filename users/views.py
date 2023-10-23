@@ -14,6 +14,7 @@ from django.core import serializers
 from .models import CustomUser
 
 def register(request):
+    user_info: dict = json.loads(request.body)
     form = CustomUserCreationForm(request.POST)
     if form.is_valid():
         form.save()
@@ -24,15 +25,16 @@ def register(request):
 def userLogIn(request):
 
     user_info: dict = json.loads(request.body)
-    form = AuthenticationForm(request.POST)
-    print(user_info)
+    # form = AuthenticationForm(request.POST)
     user = authenticate(
         username=user_info.get("username"),
         password=user_info.get('password'))
     if user is not None:
         login(request, user)
         return JsonResponse(json.loads(serializers.serialize('json', [user]).strip('[]')))
-    return HttpResponse(json.dumps({'message': form.get_invalid_login_error().__str__().strip('[]')}))
+    return HttpResponse(json.dumps({'message': "Please enter a correct username and password.\n\nNote that both "
+                                               "fields may be case-sensitive."}))
+# return HttpResponse(json.dumps({'message': form.get_invalid_login_error().__str__().strip('[]').strip("''")}))
 
 
 def userLogOut(request):
