@@ -82,11 +82,11 @@ WSGI_APPLICATION = 'GroupPlanServer.wsgi.application'
 DATABASES = {
   "default": {
       "ENGINE": "mssql",
-      "NAME": "Group-Plan-DB",
-      "HOST": "tcp:group-plan-server.database.windows.net",
-      "PORT": "1433",
-      "USER": "groupPlanner",
-      "PASSWORD": "rgdEE49qi!T9vH",
+      "NAME": os.getenv('NAME'),
+      "HOST": os.getenv('HOST'),
+      "PORT": os.getenv('PORT'),
+      "USER": os.getenv('USER'),
+      "PASSWORD": os.getenv('PASSWORD'),
       "OPTIONS": {
           "driver": "ODBC Driver 17 for SQL Server"
       },
