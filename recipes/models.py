@@ -8,5 +8,6 @@ class Recipe(models.Model):
 
 
 class RecipeGroup(models.Model):
+    name = models.CharField(max_length=300, default="Recipe Group")
     django_group = models.OneToOneField(Group, unique=True, on_delete=models.CASCADE)
     current_recipe = models.OneToOneField(Recipe, unique=True, on_delete=models.SET_NULL, null=True)
