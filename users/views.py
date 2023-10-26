@@ -18,7 +18,9 @@ def register(request):
     form = CustomUserCreationForm(user_info)
     if form.is_valid():
         form.save()
-        return HttpResponse(json.dumps({'message': 'User has was created'}))
+        users_query: QuerySet = CustomUser.objects.filter(username__icontains=user_info.get("username"))
+        users = serializers.serialize("json", users_query)
+        return HttpResponse(users)
     return HttpResponse(json.dumps(form.errors.get_json_data()))
 
 
