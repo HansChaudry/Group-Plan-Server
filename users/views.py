@@ -15,7 +15,7 @@ from .models import CustomUser
 
 def register(request):
     user_info: dict = json.loads(request.body)
-    form = CustomUserCreationForm(request.POST)
+    form = CustomUserCreationForm(user_info)
     if form.is_valid():
         form.save()
         return HttpResponse(json.dumps({'message': 'User has was created'}))
