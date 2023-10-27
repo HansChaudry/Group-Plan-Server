@@ -1,13 +1,29 @@
 from django.db import models
 from django.contrib.auth.models import Group
+from django.utils.translation import gettext_lazy as _
+from django.core.validators import MinValueValidator
+from users.models import CustomUser
 
 
 # Create your models here.
 class Recipe(models.Model):
     name = models.CharField(max_length=255)
+    ingredients = models.CharField(null=False, default="[]")
+    owner = models.ForeignKey(CustomUser, on_delete=models.SET_NULL)
+    week_time = models.DateTimeField()
+    vote_count = models.IntegerField(default=0, null=False, validators=[MinValueValidator(0)])
 
 
 class RecipeGroup(models.Model):
+    # https://stackoverflow.com/questions/54802616/how-can-one-use-enums-as-a-choice-field-in-a-django-model
+    # https://docs.djangoproject.com/en/4.2/ref/models/fields/#field-choices-enum-types
+    class RecipePrivacy(models.TextChoices):
+        PUBLIC = "PUBLIC", _("PUBLIC")
+        PRIVATE = "PRIVATE", _("PRIVATE")
+
     name = models.CharField(max_length=300, default="Recipe Group")
+    privacy = models.CharField(max_length=10, choices=RecipePrivacy.choices, default=RecipePrivacy.PRIVATE)
+    current_poll_time = models.DateTimeField()
+    owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     django_group = models.OneToOneField(Group, unique=True, on_delete=models.CASCADE)
     current_recipe = models.OneToOneField(Recipe, unique=True, on_delete=models.SET_NULL, null=True)

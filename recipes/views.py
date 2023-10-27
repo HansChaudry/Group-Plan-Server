@@ -15,7 +15,10 @@ def index(request):
 
 def create_group(request: HttpRequest):
     group_info: dict = json.loads(request.body)
-
+    group_name = group_info.get('name')
+    group_privacy = group_info.get('privacy')
+    if not group_name or not group_privacy:
+        return HttpResponse("Missing Name or Privacy", status=HTTPStatus.BAD_REQUEST)
     pass
 
 
