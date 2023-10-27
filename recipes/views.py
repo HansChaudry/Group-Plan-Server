@@ -18,7 +18,6 @@ def _create_message(msg: str):
 
 
 def index(request):
-    print(CustomUser.objects.all())
     return HttpResponse("Hello, world. You're at the polls index.")
 
 
