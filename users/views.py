@@ -13,6 +13,9 @@ from django.core import serializers
 
 from .models import CustomUser
 
+def _create_message(msg: str):
+    return json.dumps({"message": msg})
+
 def register(request):
     user_info: dict = json.loads(request.body)
     form = CustomUserCreationForm(user_info)
@@ -56,10 +59,10 @@ def searchUser(request: HttpRequest, user_info: str):
             users = serializers.serialize("json", users_query)
             return HttpResponse(users)
     except ObjectDoesNotExist:
-        return HttpResponse(None, status=HTTPStatus.NOT_FOUND)
+        return HttpResponse(_create_message("User Not Found"), status=HTTPStatus.NOT_FOUND)
     except Exception as e:
         print(e)
-        return HttpResponse("Invalid Request", status=HTTPStatus.BAD_REQUEST)
+        return HttpResponse(_create_message("Invalid Request"), status=HTTPStatus.BAD_REQUEST)
 
 
 def updateUser(request: HttpRequest):
@@ -72,35 +75,35 @@ def updateUser(request: HttpRequest):
         }
     }
     '''
-
+    if not request.user.is_authenticated:
+        return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
     update_info: dict = json.loads(request.body)
     update_type = update_info.get("type")
     if not update_type:
-        return HttpResponse("Invalid Request", status=HTTPStatus.BAD_REQUEST)
+        return HttpResponse(_create_message("Missing Update Type"), status=HTTPStatus.BAD_REQUEST)
     try:
         user_info: dict = update_info.get("user_info")
-        user_id = user_info.get("id")
-        if not user_info or not user_id:
-            return HttpResponse("Invalid Request", status=HTTPStatus.BAD_REQUEST)
-        user = CustomUser.objects.get(id=user_id)
+        if not user_info:
+            return HttpResponse(_create_message("Missing New Info"), status=HTTPStatus.BAD_REQUEST)
+        django_user = request.user
         if update_type == "email":
             new_email: str = user_info.get("email")
-            user.email = new_email
+            django_user.email = new_email
         elif update_type == "username":
             new_username: str = user_info.get("username")
-            user.username = new_username
+            django_user.username = new_username
         else:
-            return HttpResponse("Invalid Request", status=HTTPStatus.BAD_REQUEST)
-        user.save()
-        return HttpResponse("Updated User", status=HTTPStatus.OK)
+            return HttpResponse(_create_message("Invalid Request"), status=HTTPStatus.BAD_REQUEST)
+        django_user.save()
+        return HttpResponse(json.dumps(model_to_dict(django_user), default=str), status=HTTPStatus.OK)
     except ObjectDoesNotExist:
-        return HttpResponse("Invalid Request", status=HTTPStatus.BAD_REQUEST)
+        return HttpResponse(_create_message("User not found."), status=HTTPStatus.BAD_REQUEST)
     except Exception as e:
         print(e)
-        return HttpResponse("Invalid Request", status=HTTPStatus.BAD_REQUEST)
+        return HttpResponse(_create_message("Invalid Request"), status=HTTPStatus.BAD_REQUEST)
 
 
 def user(request: HttpRequest):
     if request.method == 'PUT':
         return updateUser(request)
-    return HttpResponse("Invalid Method", status=HTTPStatus.METHOD_NOT_ALLOWED)
+    return HttpResponse(_create_message("Invalid Method"), status=HTTPStatus.METHOD_NOT_ALLOWED)
