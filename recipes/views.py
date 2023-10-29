@@ -23,6 +23,7 @@ def index(request):
 
 def add_user_to_group(request: HttpRequest):
     if not request.user.is_authenticated:
+        print(request.user)
         return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
     if request.method != "POST":
         return HttpResponse(_create_message("Invalid Method"), status=HTTPStatus.METHOD_NOT_ALLOWED)
