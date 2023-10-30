@@ -9,7 +9,7 @@ from django.contrib.auth.models import Group
 from users.models import CustomUser
 from .models import RecipeGroup
 from django.core import serializers
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Q
 
 # Create your views here.
 from django.http import HttpResponse, HttpRequest
@@ -76,9 +76,13 @@ def create_group(request: HttpRequest):
 def search_groups(request: HttpRequest, group_info: str):
     if request.method != 'GET':
         return HttpResponse(_create_message("Bad Request"), status=HTTPStatus.METHOD_NOT_ALLOWED)
-    recipeGroupsQuery: QuerySet = RecipeGroup.objects.filter(name__contains=group_info)
+    user = request.user
+    groups = user.groups.all()
+    groupNames = []
+    for group in groups:
+        groupNames.append(group.name)
+    recipeGroupsQuery: QuerySet = RecipeGroup.objects.filter(~Q(name__in=groupNames), name__contains=group_info)
     recipeGroups = serializers.serialize("json", recipeGroupsQuery)
-    # print(recipeGroups)
     return HttpResponse(recipeGroups, status=HTTPStatus.OK)
 
 def get_user_groups(request: HttpRequest):
@@ -87,7 +91,11 @@ def get_user_groups(request: HttpRequest):
     if not request.user.is_authenticated:
         return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
     user = request.user
-    recipeGroupsQuery: QuerySet = RecipeGroup.objects.filter(owner__username=user)
+    groups = user.groups.all()
+    groupNames = []
+    for group in groups:
+        groupNames.append(group.name)
+    recipeGroupsQuery: QuerySet = RecipeGroup.objects.filter(name__in=groupNames)
     recipeGroups = serializers.serialize("json", recipeGroupsQuery)
     return HttpResponse(recipeGroups, status=HTTPStatus.OK)
 
