@@ -3,9 +3,9 @@ from django.contrib.auth.models import Group
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator
 from users.models import CustomUser
+from django.contrib.postgres.fields import ArrayField
 import datetime
 from django.utils import timezone
-
 
 
 # Create your models here.
