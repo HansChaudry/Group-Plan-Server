@@ -8,6 +8,8 @@ from django.db.utils import IntegrityError
 from django.contrib.auth.models import Group
 from users.models import CustomUser
 from .models import RecipeGroup
+from django.core import serializers
+from django.db.models import QuerySet, Q
 
 # Create your views here.
 from django.http import HttpResponse, HttpRequest
@@ -23,6 +25,7 @@ def index(request):
 
 def add_user_to_group(request: HttpRequest):
     if not request.user.is_authenticated:
+        print(request.user)
         return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
     if request.method != "POST":
         return HttpResponse(_create_message("Invalid Method"), status=HTTPStatus.METHOD_NOT_ALLOWED)
@@ -70,6 +73,31 @@ def create_group(request: HttpRequest):
         print(f"Error: {e}")
         return HttpResponse(_create_message("Unknown Error"), status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
+def search_groups(request: HttpRequest, group_info: str):
+    if request.method != 'GET':
+        return HttpResponse(_create_message("Bad Request"), status=HTTPStatus.METHOD_NOT_ALLOWED)
+    user = request.user
+    groups = user.groups.all()
+    groupNames = []
+    for group in groups:
+        groupNames.append(group.name)
+    recipeGroupsQuery: QuerySet = RecipeGroup.objects.filter(~Q(name__in=groupNames), name__contains=group_info)
+    recipeGroups = serializers.serialize("json", recipeGroupsQuery)
+    return HttpResponse(recipeGroups, status=HTTPStatus.OK)
+
+def get_user_groups(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse(_create_message("Bad Request"), status=HTTPStatus.METHOD_NOT_ALLOWED)
+    if not request.user.is_authenticated:
+        return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
+    user = request.user
+    groups = user.groups.all()
+    groupNames = []
+    for group in groups:
+        groupNames.append(group.name)
+    recipeGroupsQuery: QuerySet = RecipeGroup.objects.filter(name__in=groupNames)
+    recipeGroups = serializers.serialize("json", recipeGroupsQuery)
+    return HttpResponse(recipeGroups, status=HTTPStatus.OK)
 
 def group(request: HttpRequest):
     if request.method == 'POST':
