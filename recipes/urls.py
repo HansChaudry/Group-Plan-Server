@@ -7,5 +7,9 @@ urlpatterns = [
     path("group/", views.group),
     path("group/add", views.add_user_to_group),
     path('searchGroups/<str:group_info>/', views.search_groups),
-    path('getUserGroups/', views.get_user_groups)
+    path('getUserGroups/', views.get_user_groups),
+    path('createRecipe/', views.create_recipe),
+    path('getUserRecipes/', views.get_user_recipes),
+    path('getRecipe/<str:recipeId>/', views.get_recipe),
+    path('startPoll/<str:groupId>/', views.start_Poll)
 ]
