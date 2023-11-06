@@ -102,6 +102,18 @@ def get_user_groups(request: HttpRequest):
     recipeGroups = serializers.serialize("json", recipeGroupsQuery)
     return HttpResponse(recipeGroups, status=HTTPStatus.OK)
 
+def start_Poll(request: HttpRequest, groupId: int):
+    if request.method != 'PUT':
+        return HttpResponse(_create_message("Bad Request"), status=HTTPStatus.METHOD_NOT_ALLOWED)
+    if not request.user.is_authenticated:
+        return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
+
+    recipeGroupQuery: QuerySet = RecipeGroup.objects.filter(id=groupId)
+    group = recipeGroupQuery.get(id=groupId)
+    group.current_poll = True
+    group.save()
+    return HttpResponse('hi', status=HTTPStatus.OK)
+
 
 def group(request: HttpRequest):
     if request.method == 'POST':
@@ -142,6 +154,18 @@ def get_user_recipes(request: HttpRequest):
     except (ObjectDoesNotExist, MultipleObjectsReturned):
         return HttpResponse(_create_message("User Not Found"), status=HTTPStatus.BAD_REQUEST)
 
+
+def get_recipe(request: HttpRequest, recipeId: int):
+    if not request.user.is_authenticated:
+        return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
+
+    try:
+        recipes_query: QuerySet = Recipe.objects.filter(id=recipeId).order_by('name')
+        recipe = serializers.serialize("json", recipes_query)
+
+        return HttpResponse(recipe)
+    except (ObjectDoesNotExist, MultipleObjectsReturned):
+        return HttpResponse(_create_message("User Not Found"), status=HTTPStatus.BAD_REQUEST)
 
 def getDuplicateRecipe(userName, recipeName: str) -> QuerySet:
     return Recipe.objects.filter(owner=userName).filter(name=recipeName)
