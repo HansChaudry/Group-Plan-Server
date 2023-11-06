@@ -112,7 +112,7 @@ def start_Poll(request: HttpRequest, groupId: int):
     group = recipeGroupQuery.get(id=groupId)
     group.current_poll = True
     group.save()
-    return HttpResponse('hi', status=HTTPStatus.OK)
+    return HttpResponse(_create_message("Poll started"), status=HTTPStatus.OK)
 
 
 def group(request: HttpRequest):
