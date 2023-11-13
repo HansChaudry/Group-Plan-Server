@@ -127,13 +127,14 @@ def create_recipe(request: HttpRequest):
         return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
     recipe_info: dict = json.loads(request.body)
     recipe_name = recipe_info.get('recipe_name')
-    recipe_ingredients = recipe_info.get('ingredients')
+    recipe_ingredients = recipe_info.get('recipe_ingredients')
+    recipe_instructions = recipe_info.get('recipe_instructions')
     user = request.user
     duplicate = getDuplicateRecipe(user, recipe_name)
     try:
         user = request.user
         if not duplicate:
-            Recipe.objects.create(name=recipe_name, owner=user, ingredients=str(recipe_ingredients))
+            Recipe.objects.create(name=recipe_name, owner=user, ingredients=recipe_ingredients, instructions=recipe_instructions)
         else:
             return HttpResponse(_create_message("Duplicate Recipe Name"), status=HTTPStatus.BAD_REQUEST)
     except (ObjectDoesNotExist, MultipleObjectsReturned):

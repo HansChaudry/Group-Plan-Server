@@ -12,6 +12,7 @@ from django.utils import timezone
 class Recipe(models.Model):
     name = models.CharField(max_length=255)
     ingredients = models.CharField(null=False, default="[]", max_length=2048)
+    instructions = models.CharField(null=False, default="[]", max_length=2048)
     owner = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True)
     django_group = models.OneToOneField(Group, on_delete=models.DO_NOTHING, null=True)
     week_time = models.DateTimeField(auto_now=True)
