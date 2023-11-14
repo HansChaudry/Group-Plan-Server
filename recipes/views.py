@@ -98,9 +98,11 @@ def get_user_groups(request: HttpRequest):
     groupNames = []
     for group in groups:
         groupNames.append(group.name)
-    recipeGroupsQuery: QuerySet = RecipeGroup.objects.filter(name__in=groupNames).order_by('name')
+    recipeGroupsQuery: QuerySet = RecipeGroup.objects.filter(
+        name__in=groupNames).order_by('name')
     recipeGroups = serializers.serialize("json", recipeGroupsQuery)
     return HttpResponse(recipeGroups, status=HTTPStatus.OK)
+
 
 def start_Poll(request: HttpRequest, groupId: int):
     if request.method != 'PUT':
@@ -127,13 +129,15 @@ def create_recipe(request: HttpRequest):
         return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
     recipe_info: dict = json.loads(request.body)
     recipe_name = recipe_info.get('recipe_name')
-    recipe_ingredients = recipe_info.get('ingredients')
+    recipe_ingredients = recipe_info.get('recipe_ingredients')
+    recipe_instructions = recipe_info.get('recipe_instructions')
     user = request.user
     duplicate = getDuplicateRecipe(user, recipe_name)
     try:
         user = request.user
         if not duplicate:
-            Recipe.objects.create(name=recipe_name, owner=user, ingredients=str(recipe_ingredients))
+            Recipe.objects.create(name=recipe_name, owner=user,
+                                  ingredients=recipe_ingredients, instructions=recipe_instructions)
         else:
             return HttpResponse(_create_message("Duplicate Recipe Name"), status=HTTPStatus.BAD_REQUEST)
     except (ObjectDoesNotExist, MultipleObjectsReturned):
@@ -148,7 +152,8 @@ def get_user_recipes(request: HttpRequest):
     try:
         user = request.user
         Recipe.objects.filter(owner=user)
-        recipes_query: QuerySet = Recipe.objects.filter(owner=user).order_by('name')
+        recipes_query: QuerySet = Recipe.objects.filter(
+            owner=user).order_by('name')
         recipes = serializers.serialize("json", recipes_query)
         return HttpResponse(recipes)
     except (ObjectDoesNotExist, MultipleObjectsReturned):
@@ -160,12 +165,14 @@ def get_recipe(request: HttpRequest, recipeId: int):
         return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
 
     try:
-        recipes_query: QuerySet = Recipe.objects.filter(id=recipeId).order_by('name')
+        recipes_query: QuerySet = Recipe.objects.filter(
+            id=recipeId).order_by('name')
         recipe = serializers.serialize("json", recipes_query)
 
         return HttpResponse(recipe)
     except (ObjectDoesNotExist, MultipleObjectsReturned):
         return HttpResponse(_create_message("User Not Found"), status=HTTPStatus.BAD_REQUEST)
+
 
 def getDuplicateRecipe(userName, recipeName: str) -> QuerySet:
     return Recipe.objects.filter(owner=userName).filter(name=recipeName)
