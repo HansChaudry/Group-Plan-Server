@@ -117,6 +117,33 @@ def start_Poll(request: HttpRequest, groupId: int):
     return HttpResponse(_create_message("Poll started"), status=HTTPStatus.OK)
 
 
+def get_group_members(request: HttpRequest, groupId: int):
+    if not request.method == 'GET':
+        return HttpResponse(_create_message("Invalid Method"), status=HTTPStatus.METHOD_NOT_ALLOWED)
+    if not request.user.is_authenticated:
+        return HttpResponse(_create_message("Not Authorized"), status=HTTPStatus.UNAUTHORIZED)
+    try:
+        recipe_group: RecipeGroup = RecipeGroup.objects.get(id=groupId)
+        django_group: Group = recipe_group.django_group
+        users = django_group.user_set.all().values("pk", "username", "first_name", "last_name", "email", "votedRecipe", "profileIMG")
+        return HttpResponse(json.dumps(list(users), default=str), content_type="application/json")
+    except (ObjectDoesNotExist, MultipleObjectsReturned):
+        return HttpResponse(_create_message("Group does not exist"), status=HTTPStatus.BAD_REQUEST)
+
+
+def get_group_info(request: HttpRequest, groupId: int):
+    if not request.method == 'GET':
+        return HttpResponse(_create_message("Invalid Method"), status=HTTPStatus.METHOD_NOT_ALLOWED)
+    if not request.user.is_authenticated:
+        return HttpResponse(_create_message("Not Authorized"), status=HTTPStatus.UNAUTHORIZED)
+    try:
+        recipe_group: RecipeGroup = RecipeGroup.objects.get(id=groupId)
+        recipe_group = model_to_dict(recipe_group)
+        return HttpResponse(json.dumps(recipe_group, default=str), content_type="application/json")
+    except (ObjectDoesNotExist, MultipleObjectsReturned):
+        return HttpResponse(_create_message("Group does not exist"), status=HTTPStatus.BAD_REQUEST)
+
+
 def group(request: HttpRequest):
     if request.method == 'POST':
         return create_group(request)
