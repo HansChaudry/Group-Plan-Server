@@ -15,7 +15,7 @@ class Recipe(models.Model):
     instructions = models.CharField(null=False, default="[]", max_length=2048)
     owner = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True)
     django_group = models.OneToOneField(Group, on_delete=models.DO_NOTHING, null=True)
-    week_time = models.DateTimeField(auto_now=True)
+    week_time = models.DateTimeField(null=True)
     vote_count = models.IntegerField(default=0, null=False, validators=[MinValueValidator(0)])
 
 
@@ -28,8 +28,22 @@ class RecipeGroup(models.Model):
 
     name = models.CharField(max_length=300, default="Recipe Group")
     privacy = models.CharField(max_length=10, choices=RecipePrivacy.choices, default=RecipePrivacy.PRIVATE)
-    current_poll_time = models.DateTimeField(auto_now=True)
+    current_poll_time = models.DateTimeField(null=True)
     owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True)
     django_group = models.OneToOneField(Group, unique=True, on_delete=models.CASCADE)
     current_recipe = models.OneToOneField(Recipe, unique=True, on_delete=models.SET_NULL, null=True)
     current_poll = models.BooleanField(default=0, null=True)
+
+
+class Votes(models.Model):
+    recipe_group = models.ForeignKey(RecipeGroup, on_delete=models.CASCADE, null=True)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True)
+    recipe = models.ForeignKey(Recipe, on_delete=models.SET_NULL, null=True)
+    current_poll_time = models.DateTimeField(null=True) # Should be the same time as the group poll time
+
+
+class PollRecipes(models.Model):
+    current_poll_time = models.DateTimeField(null=True) # Should be the same time as the group poll time
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, null=True)
+    recipe_group = models.ForeignKey(RecipeGroup, on_delete=models.CASCADE, null=True)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True)

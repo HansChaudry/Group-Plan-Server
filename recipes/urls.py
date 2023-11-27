@@ -13,5 +13,9 @@ urlpatterns = [
     path('createRecipe/', views.create_recipe),
     path('getUserRecipes/', views.get_user_recipes),
     path('getRecipe/<str:recipeId>/', views.get_recipe),
-    path('startPoll/<str:groupId>/', views.start_Poll)
+    path('startPoll/<str:groupId>/', views.start_Poll),
+    path('addVote/<str:groupId>/', views.add_vote),
+    path('addRecipe/<str:groupId>', views.add_recipe_to_poll),
+    path('getPoll/recipes/<str:groupId>', views.get_poll_recipes),
+    path('getPoll/votes/<str:groupId>', views.get_poll_votes)
 ]
