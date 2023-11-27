@@ -35,14 +35,14 @@ class RecipeGroup(models.Model):
     current_poll = models.BooleanField(default=0, null=True)
 
 
-class Votes(models.Model):
+class Vote(models.Model):
     recipe_group = models.ForeignKey(RecipeGroup, on_delete=models.CASCADE, null=True)
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True)
     recipe = models.ForeignKey(Recipe, on_delete=models.SET_NULL, null=True)
     current_poll_time = models.DateTimeField(null=True) # Should be the same time as the group poll time
 
 
-class PollRecipes(models.Model):
+class PollRecipe(models.Model):
     current_poll_time = models.DateTimeField(null=True) # Should be the same time as the group poll time
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, null=True)
     recipe_group = models.ForeignKey(RecipeGroup, on_delete=models.CASCADE, null=True)
