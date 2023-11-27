@@ -1,4 +1,6 @@
+import datetime
 from http import HTTPStatus
+import random
 
 from django.forms.models import model_to_dict
 import json
@@ -275,5 +277,28 @@ def get_poll_votes(request: HttpRequest, groupId: int):
         poll_time = recipe_group.current_poll_time
         votes = Vote.objects.filter(recipe_group=recipe_group, current_poll_time=poll_time).values()
         return HttpResponse(json.dumps(list(votes), default=str), status=HTTPStatus.OK)
+    except (ObjectDoesNotExist, MultipleObjectsReturned):
+        return HttpResponse(_create_message("Group/Recipe Not Found"), status=HTTPStatus.BAD_REQUEST)
+
+def Generate_Poll_Summary(voteList):
+    summary= {}
+    for vote in voteList:
+        recipe: Recipe = Recipe.objects.get(id=vote['recipe_id'])
+        if(recipe.name in summary):
+            summary[recipe.name] = {"id":recipe.pk, "votes": summary[recipe.name]["votes"]+1}
+        else:
+            summary[recipe.name] = {"id":recipe.pk, "votes": 1}
+    return summary
+
+def get_poll_summary(request: HttpRequest, groupId: int):
+    if request.method != 'GET':
+        return HttpResponse(_create_message("Bad Request"), status=HTTPStatus.METHOD_NOT_ALLOWED)
+    if not request.user.is_authenticated:
+        return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
+    try:
+        recipe_group: RecipeGroup = RecipeGroup.objects.get(id=groupId)
+        poll_time = recipe_group.current_poll_time
+        votes = Vote.objects.filter(recipe_group=recipe_group, current_poll_time=poll_time).values()
+        return HttpResponse(json.dumps(Generate_Poll_Summary(list(votes)), default=str), status=HTTPStatus.OK)
     except (ObjectDoesNotExist, MultipleObjectsReturned):
         return HttpResponse(_create_message("Group/Recipe Not Found"), status=HTTPStatus.BAD_REQUEST)
