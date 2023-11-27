@@ -298,7 +298,7 @@ def get_poll_summary(request: HttpRequest, groupId: int):
     try:
         recipe_group: RecipeGroup = RecipeGroup.objects.get(id=groupId)
         poll_time = recipe_group.current_poll_time
-        votes = Vote.objects.filter(recipe_group=recipe_group, current_poll_time=poll_time).values()
+        votes = Vote.objects.filter(recipe_group=recipe_group, current_poll_time=poll_time).select_related('recipe_id').values()
         return HttpResponse(json.dumps(Generate_Poll_Summary(list(votes)), default=str), status=HTTPStatus.OK)
     except (ObjectDoesNotExist, MultipleObjectsReturned):
         return HttpResponse(_create_message("Group/Recipe Not Found"), status=HTTPStatus.BAD_REQUEST)
