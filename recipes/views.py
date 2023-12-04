@@ -304,13 +304,14 @@ def get_poll_votes(request: HttpRequest, groupId: int):
         return HttpResponse(_create_message("Group/Recipe Not Found"), status=HTTPStatus.BAD_REQUEST)
 
 def Generate_Poll_Summary(voteList):
-    summary= {}
+    summary= {"N/A 1":{"id":0, "votes":0},"N/A 2":{"id":0, "votes":0}, "N/A 3":{"id":0, "votes":0}}
     for vote in voteList:
         recipe: Recipe = Recipe.objects.get(id=vote['recipe_id'])
         if(recipe.name in summary):
             summary[recipe.name] = {"id":recipe.pk, "votes": summary[recipe.name]["votes"]+1}
         else:
             summary[recipe.name] = {"id":recipe.pk, "votes": 1}
+    summary = dict(sorted(summary.items(), key=lambda x: x[1]["votes"], reverse=True))
     return summary
 
 def get_poll_summary(request: HttpRequest, groupId: int):
@@ -320,8 +321,11 @@ def get_poll_summary(request: HttpRequest, groupId: int):
         return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
     try:
         recipe_group: RecipeGroup = RecipeGroup.objects.get(id=groupId)
+        user_count = recipe_group.django_group.user_set.count()
         poll_time = recipe_group.current_poll_time
         votes = Vote.objects.filter(recipe_group=recipe_group, current_poll_time=poll_time).select_related('recipe_id').values()
-        return HttpResponse(json.dumps(Generate_Poll_Summary(list(votes)), default=str), status=HTTPStatus.OK)
+        summary = {"user_count":user_count, "summary":Generate_Poll_Summary(list(votes))}
+        return HttpResponse(json.dumps(summary, default=str), status=HTTPStatus.OK)
     except (ObjectDoesNotExist, MultipleObjectsReturned):
         return HttpResponse(_create_message("Group/Recipe Not Found"), status=HTTPStatus.BAD_REQUEST)
+    
