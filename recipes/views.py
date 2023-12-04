@@ -69,6 +69,7 @@ def remove_user_from_group(request: HttpRequest):
         django_group.user_set.remove(request.user)
         #TODO: Remove all poll recipes that belong the user
         #TODO: Remove all poll votes that belong to the user
+        #TODO: If the owner leaves a new owner is choosen at random
         return HttpResponse(_create_message("User Removed"))
     except (ObjectDoesNotExist, MultipleObjectsReturned):
         return HttpResponse(_create_message("User/Group Not Found"), status=HTTPStatus.BAD_REQUEST)
