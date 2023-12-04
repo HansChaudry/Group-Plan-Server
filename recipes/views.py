@@ -231,6 +231,8 @@ def get_recipe(request: HttpRequest, recipeId: int):
 def getDuplicateRecipe(userName, recipeName: str) -> QuerySet:
     return Recipe.objects.filter(owner=userName).filter(name=recipeName)
 
+def hasVote(user, group, recipe_id) -> QuerySet:
+    return Vote.objects.filter(~Q(recipe_id=recipe_id),recipe_group=group, user=user)
 #Poll Routes
 def add_vote(request: HttpRequest, groupId: int):
     if request.method != 'PUT':
@@ -245,6 +247,9 @@ def add_vote(request: HttpRequest, groupId: int):
         recipe: Recipe = Recipe.objects.get(id=recipe_id)
         poll_time = recipe_group.current_poll_time
         # _ is an "is created" boolean, overwrites any existing vote
+        user_vote, _ = Vote.objects.get_or_create(user=user, recipe_group=recipe_group, current_poll_time=poll_time)
+        if(hasVote(user, recipe_group, recipe_id)):
+            Vote.objects.filter(~Q(recipe_id=recipe_id),user=user, recipe_group=recipe_group).delete()
         user_vote, _ = Vote.objects.get_or_create(user=user, recipe_group=recipe_group, current_poll_time=poll_time)
         user_vote.user = user
         user_vote.recipe_group = recipe_group
