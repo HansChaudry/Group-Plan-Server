@@ -13,9 +13,13 @@ from django.core import serializers
 from django.db.models import QuerySet, Q
 from django.utils import timezone
 
-# Create your views here.
 from django.http import HttpResponse, HttpRequest
 
+#TODO: add some documentation
+#TODO: double check for bugs and refactor routes
+
+#TODO: MAJOR TASK
+#TODO: CHECK IF THE POLL FINISHED. Might have to be checked within many routes, but mainly the get user groups route. After the poll is finished. All the poll recipes for that group should be removed, all the votes should be removed, the boolean value "current_poll" should be set to false, the current_poll_time property set to null and the the current recipe is update to the recipe with the most votes from the poll. In the event of a tie, the recipe is choosen randomly
 
 def _create_message(msg: str):
     return json.dumps({"message": msg})
@@ -60,11 +64,11 @@ def remove_user_from_group(request: HttpRequest):
     if not group_id:
         return HttpResponse(_create_message("Missing Group ID"), status=HTTPStatus.BAD_REQUEST)
     try:
-        # user: CustomUser = CustomUser.objects.get(id=user_id)
         recipe_group: RecipeGroup = RecipeGroup.objects.get(id=group_id)
         django_group = recipe_group.django_group
         django_group.user_set.remove(request.user)
-        # recipe_json = model_to_dict(recipe_group)
+        #TODO: Remove all poll recipes that belong the user
+        #TODO: Remove all poll votes that belong to the user
         return HttpResponse(_create_message("User Removed"))
     except (ObjectDoesNotExist, MultipleObjectsReturned):
         return HttpResponse(_create_message("User/Group Not Found"), status=HTTPStatus.BAD_REQUEST)
