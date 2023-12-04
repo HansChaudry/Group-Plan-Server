@@ -289,8 +289,13 @@ def get_poll_recipes(request: HttpRequest, groupId: int):
     try:
         recipe_group: RecipeGroup = RecipeGroup.objects.get(id=groupId)
         poll_time = recipe_group.current_poll_time
-        poll_recipes = PollRecipe.objects.filter(recipe_group=recipe_group, current_poll_time=poll_time).values()
-        return HttpResponse(json.dumps(list(poll_recipes), default=str), status=HTTPStatus.OK)
+        poll_recipes = PollRecipe.objects.prefetch_related("recipe").filter(recipe_group=recipe_group, current_poll_time=poll_time).all()
+        recipe_list = []
+        for recipe in poll_recipes:
+            temp = model_to_dict(recipe)
+            temp["recipeName"] = recipe.recipe.name
+            recipe_list.append(temp)
+        return HttpResponse(json.dumps(recipe_list, default=str), status=HTTPStatus.OK)
     except (ObjectDoesNotExist, MultipleObjectsReturned):
         return HttpResponse(_create_message("Group/Recipe Not Found"), status=HTTPStatus.BAD_REQUEST)
 
