@@ -48,6 +48,29 @@ def add_user_to_group(request: HttpRequest):
     except Exception as e:
         print(f"Error: {e}")
         return HttpResponse(_create_message("Unknown Error"), status=HTTPStatus.INTERNAL_SERVER_ERROR)
+    
+def remove_user_from_group(request: HttpRequest):
+    if not request.user.is_authenticated:
+        print(request.user)
+        return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
+    if request.method != "PUT":
+        return HttpResponse(_create_message("Invalid Method"), status=HTTPStatus.METHOD_NOT_ALLOWED)
+    info: dict = json.loads(request.body)
+    group_id = info.get("group_id")
+    if not group_id:
+        return HttpResponse(_create_message("Missing Group ID"), status=HTTPStatus.BAD_REQUEST)
+    try:
+        # user: CustomUser = CustomUser.objects.get(id=user_id)
+        recipe_group: RecipeGroup = RecipeGroup.objects.get(id=group_id)
+        django_group = recipe_group.django_group
+        django_group.user_set.remove(request.user)
+        # recipe_json = model_to_dict(recipe_group)
+        return HttpResponse(_create_message("User Removed"))
+    except (ObjectDoesNotExist, MultipleObjectsReturned):
+        return HttpResponse(_create_message("User/Group Not Found"), status=HTTPStatus.BAD_REQUEST)
+    except Exception as e:
+        print(f"Error: {e}")
+        return HttpResponse(_create_message("Unknown Error"), status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
 
 def create_group(request: HttpRequest):
