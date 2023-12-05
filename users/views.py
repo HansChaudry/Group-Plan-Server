@@ -9,6 +9,7 @@ from http import HTTPStatus
 from django.forms.models import model_to_dict
 from django.core.validators import validate_email
 from django.core import serializers
+from django.http import HttpResponse, HttpRequest
 # Create your views here.
 
 from .models import CustomUser
@@ -45,6 +46,15 @@ def userLogIn(request):
 def userLogOut(request):
     logout(request)
     return HttpResponse(json.dumps({'message': 'User logged out'}))
+
+def userAuthorized(request: HttpRequest):
+    if request.method != 'GET':
+        return HttpResponse(_create_message("Bad Request"), status=HTTPStatus.METHOD_NOT_ALLOWED)
+    
+    if not request.user.is_authenticated:
+        return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
+
+    return HttpResponse(_create_message("Authorized"),status=HTTPStatus.OK)
 
 
 def searchUser(request: HttpRequest, user_info: str):
