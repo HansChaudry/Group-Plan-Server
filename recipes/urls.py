@@ -7,6 +7,7 @@ urlpatterns = [
     path("group/", views.group),
     path("group/get/<str:groupId>", views.get_group_info),
     path("group/add", views.add_user_to_group),
+    path("group/removeUser", views.remove_user_from_group),
     path("group/members/<str:groupId>", views.get_group_members),
     path('searchGroups/<str:group_info>/', views.search_groups),
     path('getUserGroups/', views.get_user_groups),
@@ -17,5 +18,6 @@ urlpatterns = [
     path('addVote/<str:groupId>/', views.add_vote),
     path('addRecipe/<str:groupId>', views.add_recipe_to_poll),
     path('getPoll/recipes/<str:groupId>', views.get_poll_recipes),
-    path('getPoll/votes/<str:groupId>', views.get_poll_votes)
+    path('getPoll/votes/<str:groupId>', views.get_poll_votes),
+    path('getPoll/summary/<str:groupId>', views.get_poll_summary)
 ]
