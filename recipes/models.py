@@ -17,6 +17,7 @@ class Recipe(models.Model):
     django_group = models.OneToOneField(Group, on_delete=models.DO_NOTHING, null=True)
     week_time = models.DateTimeField(null=True)
     vote_count = models.IntegerField(default=0, null=False, validators=[MinValueValidator(0)])
+    recipe_image = models.CharField(max_length=255, null=True)
 
 
 class RecipeGroup(models.Model):

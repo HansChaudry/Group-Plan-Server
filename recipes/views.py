@@ -1,7 +1,8 @@
 import datetime
 from http import HTTPStatus
 import random
-
+import os
+from azure.storage.blob import BlobServiceClient
 from django.forms.models import model_to_dict
 import json
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
@@ -12,8 +13,11 @@ from .models import RecipeGroup, Recipe, Vote, PollRecipe
 from django.core import serializers
 from django.db.models import QuerySet, Q
 from django.utils import timezone
-
+from dotenv import load_dotenv
 from django.http import HttpResponse, HttpRequest
+load_dotenv()
+
+
 
 #TODO: add some documentation
 #TODO: double check for bugs and refactor routes
@@ -182,21 +186,43 @@ def group(request: HttpRequest):
     return HttpResponse(_create_message("Invalid Method"), status=HTTPStatus.METHOD_NOT_ALLOWED)
 
 
+def uploadImg(fileName, file):
+    connect_str = os.getenv('CONNSTR') 
+    container_name = "photos"
+
+    blob_service_client = BlobServiceClient.from_connection_string(conn_str=connect_str) 
+    try:
+        container_client = blob_service_client.get_container_client(container=container_name) 
+        container_client.get_container_properties() 
+    
+    except Exception as e:
+        print(e)
+        print("Creating container...")
+        container_client = blob_service_client.create_container(container_name) 
+    imgageURL = container_client.upload_blob(fileName, file).url
+    blob_service_client.close()
+    return imgageURL
+
 # RECIPE ROUTES
 def create_recipe(request: HttpRequest):
     if not request.user.is_authenticated:
         return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
-    recipe_info: dict = json.loads(request.body)
-    recipe_name = recipe_info.get('recipe_name')
-    recipe_ingredients = recipe_info.get('recipe_ingredients')
-    recipe_instructions = recipe_info.get('recipe_instructions')
+    recipe_name = request.POST.get('recipe_name')
+    recipe_ingredients = request.POST.get('recipe_ingredients')
+    recipe_instructions = request.POST.get('recipe_instructions')
+    recipe_image = request.FILES.getlist("imageFile")
     user = request.user
+    recipe_image_url = ''
+    if(len(recipe_image)):
+        recipe_image_url = uploadImg((user.username + "_" +recipe_name), recipe_image[0])
+
+    
     duplicate = getDuplicateRecipe(user, recipe_name)
     try:
         user = request.user
         if not duplicate:
             Recipe.objects.create(name=recipe_name, owner=user,
-                                  ingredients=recipe_ingredients, instructions=recipe_instructions)
+                                  ingredients=recipe_ingredients, instructions=recipe_instructions, recipe_image=recipe_image_url)
         else:
             return HttpResponse(_create_message("Duplicate Recipe Name"), status=HTTPStatus.BAD_REQUEST)
     except (ObjectDoesNotExist, MultipleObjectsReturned):
