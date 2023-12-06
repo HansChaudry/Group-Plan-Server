@@ -1,7 +1,8 @@
 import datetime
 from http import HTTPStatus
 import random
-
+import os
+from azure.storage.blob import BlobServiceClient
 from django.forms.models import model_to_dict
 import json
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
@@ -12,10 +13,10 @@ from .models import RecipeGroup, Recipe, Vote, PollRecipe
 from django.core import serializers
 from django.db.models import QuerySet, Q
 from django.utils import timezone
-
+from dotenv import load_dotenv
 from django.http import HttpResponse, HttpRequest
 
-#TODO: add some documentation
+load_dotenv()
 #TODO: double check for bugs and refactor routes
 
 #TODO: MAJOR TASK
@@ -30,23 +31,25 @@ def index(request):
 
 
 def add_user_to_group(request: HttpRequest):
+    """
+        Returns the group that the user joined
+    """
     if not request.user.is_authenticated:
         print(request.user)
         return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
     if request.method != "POST":
         return HttpResponse(_create_message("Invalid Method"), status=HTTPStatus.METHOD_NOT_ALLOWED)
     info: dict = json.loads(request.body)
-    user_id = info.get("user_id")
     group_id = info.get("group_id")
-    if not user_id or not group_id:
-        return HttpResponse(_create_message("Missing User ID or Group ID"), status=HTTPStatus.BAD_REQUEST)
+    if not group_id:
+        return HttpResponse(_create_message("Missing Group ID"), status=HTTPStatus.BAD_REQUEST)
     try:
-        user: CustomUser = CustomUser.objects.get(id=user_id)
+        user = request.user
         recipe_group: RecipeGroup = RecipeGroup.objects.get(id=group_id)
         django_group = recipe_group.django_group
         django_group.user_set.add(user)
-        recipe_json = model_to_dict(recipe_group)
-        return HttpResponse(json.dumps(recipe_json, default=str))
+        recipe_group_json = model_to_dict(recipe_group)
+        return HttpResponse(json.dumps(recipe_group_json, default=str))
     except (ObjectDoesNotExist, MultipleObjectsReturned):
         return HttpResponse(_create_message("User/Group Not Found"), status=HTTPStatus.BAD_REQUEST)
     except Exception as e:
@@ -54,6 +57,9 @@ def add_user_to_group(request: HttpRequest):
         return HttpResponse(_create_message("Unknown Error"), status=HTTPStatus.INTERNAL_SERVER_ERROR)
     
 def remove_user_from_group(request: HttpRequest):
+    """
+        Returns "User Removed" if the user was succesfully removed 
+    """
     if not request.user.is_authenticated:
         print(request.user)
         return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
@@ -79,6 +85,9 @@ def remove_user_from_group(request: HttpRequest):
 
 
 def create_group(request: HttpRequest):
+    """
+        Returns a information about a group, that was created
+    """
     if not request.user.is_authenticated:
         return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
     group_info: dict = json.loads(request.body)
@@ -106,50 +115,81 @@ def create_group(request: HttpRequest):
 
 
 def search_groups(request: HttpRequest, group_info: str):
+    """
+        Returns a list containing groups where the name contains group_info in their name, and where the user is not in the group's user set
+    """
+    if not request.user.is_authenticated:
+        return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
     if request.method != 'GET':
         return HttpResponse(_create_message("Bad Request"), status=HTTPStatus.METHOD_NOT_ALLOWED)
-    user = request.user
-    groups = user.groups.all()
-    groupNames = []
-    for group in groups:
-        groupNames.append(group.name)
-    recipeGroupsQuery: QuerySet = (RecipeGroup.objects.filter(~Q(name__in=groupNames), name__contains=group_info)
-                                   .order_by('name'))
-    recipeGroups = serializers.serialize("json", recipeGroupsQuery)
-    return HttpResponse(recipeGroups, status=HTTPStatus.OK)
+    try:
+        user = request.user
+        groups = user.groups.all()
+        groupNames = []
+        for group in groups:
+            groupNames.append(group.name)
+        recipeGroupsQuery: QuerySet = (RecipeGroup.objects.filter(~Q(name__in=groupNames), name__contains=group_info)
+                                    .order_by('name'))
+        recipeGroups = serializers.serialize("json", recipeGroupsQuery)
+        return HttpResponse(recipeGroups, status=HTTPStatus.OK)
+    except (ObjectDoesNotExist, MultipleObjectsReturned):
+        return HttpResponse(_create_message("No groups found"), status=HTTPStatus.BAD_REQUEST)
 
 
 def get_user_groups(request: HttpRequest):
+    """
+        Returns of the user's gorups include the groups current recipe name
+    """
     if request.method != 'GET':
         return HttpResponse(_create_message("Bad Request"), status=HTTPStatus.METHOD_NOT_ALLOWED)
     if not request.user.is_authenticated:
         return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
-    user = request.user
-    groups = user.groups.all()
-    groupNames = []
-    for group in groups:
-        groupNames.append(group.name)
-    recipeGroupsQuery: QuerySet = RecipeGroup.objects.filter(
-        name__in=groupNames).order_by('name')
-    recipeGroups = serializers.serialize("json", recipeGroupsQuery)
-    return HttpResponse(recipeGroups, status=HTTPStatus.OK)
+    try:
+        user = request.user
+        groups = user.groups.all()
+        groupNames = []
+        for group in groups:
+            groupNames.append(group.name)
+        recipeGroupsQuery: QuerySet = RecipeGroup.objects.select_related("current_recipe").filter(
+            name__in=groupNames).order_by('name')
+        groups=[]
+        for recipeGroup in recipeGroupsQuery:
+            temp = model_to_dict(recipeGroup)
+            if(recipeGroup.current_recipe):
+                temp["current_recipe_name"] = recipeGroup.current_recipe.name
+            else:
+                temp["current_recipe_name"] = "None"
+            groups.append(temp)
+    except (ObjectDoesNotExist, MultipleObjectsReturned):
+        return HttpResponse(_create_message("Group/Recipe Not Found"), status=HTTPStatus.BAD_REQUEST)
+
+    return HttpResponse(json.dumps(groups, default=str), status=HTTPStatus.OK)
+
 
 
 def start_Poll(request: HttpRequest, groupId: int):
+    """
+        returns "Poll Started" if the current_poll property was succesfully set to true and the current poll time is set be 24 hours from now
+    """
     if request.method != 'PUT':
         return HttpResponse(_create_message("Bad Request"), status=HTTPStatus.METHOD_NOT_ALLOWED)
     if not request.user.is_authenticated:
         return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
-
-    recipeGroupQuery: QuerySet = RecipeGroup.objects.filter(id=groupId)
-    group = recipeGroupQuery.get(id=groupId)
-    group.current_poll = True
-    group.current_poll_time = timezone.now()
-    group.save()
-    return HttpResponse(_create_message("Poll started"), status=HTTPStatus.OK)
+    try:
+        recipeGroupQuery: QuerySet = RecipeGroup.objects.filter(id=groupId)
+        group = recipeGroupQuery.get(id=groupId)
+        group.current_poll = True
+        group.current_poll_time = timezone.now() + timezone.timedelta(hours=24)
+        group.save()
+        return HttpResponse(_create_message("Poll started"), status=HTTPStatus.OK)
+    except (ObjectDoesNotExist, MultipleObjectsReturned):
+        return HttpResponse(_create_message("Group Not Found"), status=HTTPStatus.BAD_REQUEST)
 
 
 def get_group_members(request: HttpRequest, groupId: int):
+    """
+        returns all the group members
+    """
     if not request.method == 'GET':
         return HttpResponse(_create_message("Invalid Method"), status=HTTPStatus.METHOD_NOT_ALLOWED)
     if not request.user.is_authenticated:
@@ -164,6 +204,9 @@ def get_group_members(request: HttpRequest, groupId: int):
 
 
 def get_group_info(request: HttpRequest, groupId: int):
+    """
+        returns all information about a specific group
+    """
     if not request.method == 'GET':
         return HttpResponse(_create_message("Invalid Method"), status=HTTPStatus.METHOD_NOT_ALLOWED)
     if not request.user.is_authenticated:
@@ -182,29 +225,56 @@ def group(request: HttpRequest):
     return HttpResponse(_create_message("Invalid Method"), status=HTTPStatus.METHOD_NOT_ALLOWED)
 
 
+def uploadImg(fileName, file):
+    """
+        uploads recipe image file to azure blobs and returns the link to the image for public reference by client
+    """
+    connect_str = os.getenv('CONNSTR') 
+    container_name = "photos"
+
+    blob_service_client = BlobServiceClient.from_connection_string(conn_str=connect_str) 
+    try:
+        container_client = blob_service_client.get_container_client(container=container_name) 
+        container_client.get_container_properties() 
+    
+    except Exception as e:
+        container_client = blob_service_client.create_container(container_name) 
+    imgageURL = container_client.upload_blob(fileName, file).url
+    blob_service_client.close()
+    return imgageURL
+
 # RECIPE ROUTES
 def create_recipe(request: HttpRequest):
+    """
+        Returns "Recipe Created" if the recipe was succefully created under the user 
+    """
     if not request.user.is_authenticated:
         return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
-    recipe_info: dict = json.loads(request.body)
-    recipe_name = recipe_info.get('recipe_name')
-    recipe_ingredients = recipe_info.get('recipe_ingredients')
-    recipe_instructions = recipe_info.get('recipe_instructions')
+    recipe_name = request.POST.get('recipe_name')
+    recipe_ingredients = request.POST.get('recipe_ingredients')
+    recipe_instructions = request.POST.get('recipe_instructions')
+    recipe_image = request.FILES.getlist("imageFile")
     user = request.user
+    recipe_image_url = ''
+    if(len(recipe_image)):
+        recipe_image_url = uploadImg((user.username + "_" +recipe_name), recipe_image[0])
     duplicate = getDuplicateRecipe(user, recipe_name)
     try:
         user = request.user
         if not duplicate:
             Recipe.objects.create(name=recipe_name, owner=user,
-                                  ingredients=recipe_ingredients, instructions=recipe_instructions)
+                                  ingredients=recipe_ingredients, instructions=recipe_instructions, recipe_image=recipe_image_url)
         else:
             return HttpResponse(_create_message("Duplicate Recipe Name"), status=HTTPStatus.BAD_REQUEST)
     except (ObjectDoesNotExist, MultipleObjectsReturned):
         return HttpResponse(_create_message("User Not Found"), status=HTTPStatus.BAD_REQUEST)
-    return HttpResponse("Hello, you can create recipes soon!")
+    return HttpResponse("Recipe Created")
 
 
 def get_user_recipes(request: HttpRequest):
+    """
+        Retunrns a list containing all of the user's recipes 
+    """
     if not request.user.is_authenticated:
         return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
 
@@ -220,6 +290,9 @@ def get_user_recipes(request: HttpRequest):
 
 
 def get_recipe(request: HttpRequest, recipeId: int):
+    """
+        Returns Json model of the desired recipe
+    """
     if not request.user.is_authenticated:
         return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
 
@@ -234,12 +307,21 @@ def get_recipe(request: HttpRequest, recipeId: int):
 
 
 def getDuplicateRecipe(userName, recipeName: str) -> QuerySet:
+    """
+        returns duplicate recipe if one exist
+    """
     return Recipe.objects.filter(owner=userName).filter(name=recipeName)
 
 def hasVote(user, group, recipe_id) -> QuerySet:
+    """
+        returns a user's vote for the current poll if they have one
+    """
     return Vote.objects.filter(~Q(recipe_id=recipe_id),recipe_group=group, user=user)
 #Poll Routes
 def add_vote(request: HttpRequest, groupId: int):
+    """
+        Returns dictionary of the user's vote for the current poll
+    """
     if request.method != 'PUT':
         return HttpResponse(_create_message("Bad Request"), status=HTTPStatus.METHOD_NOT_ALLOWED)
     if not request.user.is_authenticated:
@@ -267,6 +349,9 @@ def add_vote(request: HttpRequest, groupId: int):
 
 
 def add_recipe_to_poll(request: HttpRequest, groupId: int):
+    """
+        returns the user's poll recipe if it successfully added to the group
+    """
     if request.method != 'PUT':
         return HttpResponse(_create_message("Bad Request"), status=HTTPStatus.METHOD_NOT_ALLOWED)
     if not request.user.is_authenticated:
@@ -285,10 +370,10 @@ def add_recipe_to_poll(request: HttpRequest, groupId: int):
     except (ObjectDoesNotExist, MultipleObjectsReturned):
         return HttpResponse(_create_message("Group/Recipe Not Found"), status=HTTPStatus.BAD_REQUEST)
 
-
-
-
 def get_poll_votes(request: HttpRequest, groupId: int):
+    """
+        returns a list containing all the votes for the current poll
+    """
     if request.method != 'GET':
         return HttpResponse(_create_message("Bad Request"), status=HTTPStatus.METHOD_NOT_ALLOWED)
     if not request.user.is_authenticated:
@@ -302,6 +387,9 @@ def get_poll_votes(request: HttpRequest, groupId: int):
         return HttpResponse(_create_message("Group/Recipe Not Found"), status=HTTPStatus.BAD_REQUEST)
 
 def get_poll_recipes(request: HttpRequest, groupId: int):
+    """
+        Returns a list of the recipes user's can vote for under the current poll
+    """
     if request.method != 'GET':
         return HttpResponse(_create_message("Bad Request"), status=HTTPStatus.METHOD_NOT_ALLOWED)
     if not request.user.is_authenticated:
@@ -320,6 +408,9 @@ def get_poll_recipes(request: HttpRequest, groupId: int):
         return HttpResponse(_create_message("Group/Recipe Not Found"), status=HTTPStatus.BAD_REQUEST)
     
 def Generate_Poll_Summary(voteList):
+    """
+        Returns a dictionary that summarizes the distribution of votes for the current poll
+    """
     summary= {"N/A 1":{"id":0, "votes":0},"N/A 2":{"id":0, "votes":0}, "N/A 3":{"id":0, "votes":0}}
     for vote in voteList:
         recipeName = vote.recipe.name
@@ -331,6 +422,9 @@ def Generate_Poll_Summary(voteList):
     return summary
 
 def get_poll_summary(request: HttpRequest, groupId: int):
+    """
+        Returns a json of containing the number of group members and the summary of vote distributions
+    """
     if request.method != 'GET':
         return HttpResponse(_create_message("Bad Request"), status=HTTPStatus.METHOD_NOT_ALLOWED)
     if not request.user.is_authenticated:
