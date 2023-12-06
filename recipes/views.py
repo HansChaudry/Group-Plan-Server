@@ -17,7 +17,6 @@ from dotenv import load_dotenv
 from django.http import HttpResponse, HttpRequest
 
 load_dotenv()
-#TODO: add some documentation
 #TODO: double check for bugs and refactor routes
 
 #TODO: MAJOR TASK
