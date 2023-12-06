@@ -215,8 +215,6 @@ def create_recipe(request: HttpRequest):
     recipe_image_url = ''
     if(len(recipe_image)):
         recipe_image_url = uploadImg((user.username + "_" +recipe_name), recipe_image[0])
-
-    
     duplicate = getDuplicateRecipe(user, recipe_name)
     try:
         user = request.user
