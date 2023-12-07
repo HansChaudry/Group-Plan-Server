@@ -62,7 +62,20 @@ def add_user_to_group(request: HttpRequest):
     except Exception as e:
         print(f"Error: {e}")
         return HttpResponse(_create_message("Unknown Error"), status=HTTPStatus.INTERNAL_SERVER_ERROR)
-    
+
+
+def _reset_user_group(user: CustomUser, recipe_group: RecipeGroup, django_group: Group):
+    if recipe_group.owner_id == user.id:
+        users = [u for u in django_group.user_set.values() if u["id"] != user.id]
+        new_owner = random.choice(users)
+        new_owner_custom = CustomUser.objects.get(id=new_owner["id"])
+        recipe_group.owner = new_owner_custom
+        recipe_group.save()
+    PollRecipe.objects.filter(user=user).delete()
+    Vote.objects.filter(user=user).delete()
+    django_group.user_set.remove(user)
+
+
 def remove_user_from_group(request: HttpRequest):
     """
         Returns "User Removed" if the user was succesfully removed 
@@ -79,12 +92,7 @@ def remove_user_from_group(request: HttpRequest):
     try:
         recipe_group: RecipeGroup = RecipeGroup.objects.get(id=group_id)
         django_group = recipe_group.django_group
-        if recipe_group.owner_id == request.user.id:
-            users = django_group.user_set.values()
-            new_owner = random.choice(users)
-            recipe_group.owner = CustomUser.objects.get(id=new_owner["id"])
-            recipe_group.save()
-        django_group.user_set.remove(request.user)
+        _reset_user_group(request.user, recipe_group, django_group)
         #TODO: Remove all poll recipes that belong the user
         #TODO: Remove all poll votes that belong to the user
         #TODO: If the owner leaves a new owner is choosen at random
