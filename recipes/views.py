@@ -11,7 +11,7 @@ from django.contrib.auth.models import Group
 from users.models import CustomUser
 from .models import RecipeGroup, Recipe, Vote, PollRecipe
 from django.core import serializers
-from django.db.models import QuerySet, Q
+from django.db.models import QuerySet, Q, Count
 from django.utils import timezone
 from dotenv import load_dotenv
 from django.http import HttpResponse, HttpRequest
@@ -20,7 +20,14 @@ load_dotenv()
 #TODO: double check for bugs and refactor routes
 
 #TODO: MAJOR TASK
-#TODO: CHECK IF THE POLL FINISHED. Might have to be checked within many routes, but mainly the get user groups route. After the poll is finished. All the poll recipes for that group should be removed, all the votes should be removed, the boolean value "current_poll" should be set to false, the current_poll_time property set to null and the the current recipe is update to the recipe with the most votes from the poll. In the event of a tie, the recipe is choosen randomly
+#TODO: CHECK IF THE POLL FINISHED.
+# Might have to be checked within many routes, but mainly the get user groups route.
+# After the poll is finished.
+# All the poll recipes for that group should be removed, all the votes should be removed,
+# the boolean value "current_poll" should be set to false,
+# the current_poll_time property set to null,
+# and the the current recipe is update to the recipe with the most votes from the poll.
+# In the event of a tie, the recipe is chosen randomly
 
 def _create_message(msg: str):
     return json.dumps({"message": msg})
@@ -55,7 +62,23 @@ def add_user_to_group(request: HttpRequest):
     except Exception as e:
         print(f"Error: {e}")
         return HttpResponse(_create_message("Unknown Error"), status=HTTPStatus.INTERNAL_SERVER_ERROR)
-    
+
+
+def _reset_user_group(user, recipe_group: RecipeGroup, django_group: Group):
+    if recipe_group.owner_id == user.id:
+        users = [u for u in django_group.user_set.values() if u["id"] != user.id]
+        if users:
+            new_owner = random.choice(users)
+            new_owner_custom = CustomUser.objects.get(id=new_owner["id"])
+            recipe_group.owner = new_owner_custom
+            recipe_group.save()
+        else:
+            recipe_group.delete()
+    PollRecipe.objects.filter(user=user, recipe_group=recipe_group).delete()
+    Vote.objects.filter(user=user, recipe_group=recipe_group).delete()
+    django_group.user_set.remove(user)
+
+
 def remove_user_from_group(request: HttpRequest):
     """
         Returns "User Removed" if the user was succesfully removed 
@@ -72,10 +95,7 @@ def remove_user_from_group(request: HttpRequest):
     try:
         recipe_group: RecipeGroup = RecipeGroup.objects.get(id=group_id)
         django_group = recipe_group.django_group
-        django_group.user_set.remove(request.user)
-        #TODO: Remove all poll recipes that belong the user
-        #TODO: Remove all poll votes that belong to the user
-        #TODO: If the owner leaves a new owner is choosen at random
+        _reset_user_group(request.user, recipe_group, django_group)
         return HttpResponse(_create_message("User Removed"))
     except (ObjectDoesNotExist, MultipleObjectsReturned):
         return HttpResponse(_create_message("User/Group Not Found"), status=HTTPStatus.BAD_REQUEST)
@@ -438,4 +458,70 @@ def get_poll_summary(request: HttpRequest, groupId: int):
         return HttpResponse(json.dumps(summary, default=str), status=HTTPStatus.OK)
     except (ObjectDoesNotExist, MultipleObjectsReturned):
         return HttpResponse(_create_message("Group/Recipe Not Found"), status=HTTPStatus.BAD_REQUEST)
-    
+
+
+def _reset_poll(recipe_group: RecipeGroup, votes: QuerySet[Vote]):
+    most_voted = votes.values("recipe_id").annotate(recipe_count=Count("recipe_id")).order_by("-recipe_count")
+
+    if most_voted.count() is None or most_voted.count() < 1:
+        recipes = PollRecipe.objects.filter(recipe_group=recipe_group.id).all()
+        if recipes.count() < 1:
+            # Don't change the value of current recipe if there are no poll recipes for this group
+            pass
+        else:
+            chosen_recipe = random.choice(list(recipes))
+            recipe_group.current_recipe = Recipe.objects.get(id=chosen_recipe.recipe.id)
+    else:
+        max_count = max(most_voted, key=lambda x: x["recipe_count"])["recipe_count"]
+        recipe_candidates = [vote for vote in most_voted if vote["recipe_count"] == max_count]
+        chosen_recipe = random.choice(recipe_candidates)
+        recipe = Recipe.objects.get(id=chosen_recipe["recipe_id"])
+        recipe_group.current_recipe = recipe
+
+    PollRecipe.objects.filter(recipe_group=recipe_group.id).delete()
+    Vote.objects.filter(recipe_group=recipe_group.id).delete()
+    recipe_group.current_poll = False
+    recipe_group.current_poll_time = None
+    recipe_group.save()
+    return recipe_group.current_recipe
+
+
+def get_poll_status(request: HttpRequest, group_id: int):
+    # TODO: CHECK IF THE POLL FINISHED.
+    # Might have to be checked within many routes, but mainly the get user groups route.
+    # After the poll is finished.
+    # All the poll recipes for that group should be removed, all the votes should be removed,
+    # the boolean value "current_poll" should be set to false,
+    # the current_poll_time property set to null,
+    # and the the current recipe is update to the recipe with the most votes from the poll.
+    # In the event of a tie, the recipe is chosen randomly
+    if request.method != 'GET':
+        return HttpResponse(_create_message("Bad Request"), status=HTTPStatus.METHOD_NOT_ALLOWED)
+    if not request.user.is_authenticated:
+        return HttpResponse(_create_message("Unauthorized"), status=HTTPStatus.UNAUTHORIZED)
+    try:
+        recipe_group: RecipeGroup = RecipeGroup.objects.get(id=group_id)
+        current_poll_time = recipe_group.current_poll_time
+        if not recipe_group.current_poll:
+            return HttpResponse(_create_message("Poll not active"), status=HTTPStatus.OK)
+
+        votes = Vote.objects.filter(recipe_group=recipe_group, current_poll_time=current_poll_time)
+        user_count = recipe_group.django_group.user_set.count()
+        vote_count = votes.count()
+        current_poll_time = datetime.datetime.fromisoformat(current_poll_time.strftime("%Y-%m-%d %H:%M:%S"))
+        current_time = datetime.datetime.now()
+        poll_time_passed = current_poll_time < current_time
+
+        if vote_count == user_count or poll_time_passed:
+            recipe = _reset_poll(recipe_group, votes)
+            return HttpResponse(json.dumps(model_to_dict(recipe), default=str), status=HTTPStatus.OK)
+        else:
+            message = {
+                "votes": vote_count,
+                "user_count": user_count,
+                "poll_time": recipe_group.current_poll_time,
+                "summary": Generate_Poll_Summary(votes)
+            }
+            return HttpResponse(json.dumps(message, default=str), status=HTTPStatus.OK)
+    except (ObjectDoesNotExist, MultipleObjectsReturned):
+        return HttpResponse(_create_message("Group/Recipe Not Found"), status=HTTPStatus.BAD_REQUEST)
