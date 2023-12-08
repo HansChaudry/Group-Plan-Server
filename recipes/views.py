@@ -483,7 +483,7 @@ def _reset_poll(recipe_group: RecipeGroup, votes: QuerySet[Vote]):
     recipe_group.current_poll = False
     recipe_group.current_poll_time = None
     recipe_group.save()
-    return None
+    return recipe_group.current_recipe
 
 
 def get_poll_status(request: HttpRequest, group_id: int):
@@ -513,8 +513,8 @@ def get_poll_status(request: HttpRequest, group_id: int):
         poll_time_passed = current_poll_time < current_time
 
         if vote_count == user_count or poll_time_passed:
-            _reset_poll(recipe_group, votes)
-            return HttpResponse(_create_message("Poll ended"), status=HTTPStatus.OK)
+            recipe = _reset_poll(recipe_group, votes)
+            return HttpResponse(json.dumps(model_to_dict(recipe), default=str), status=HTTPStatus.OK)
         else:
             message = {
                 "votes": vote_count,
