@@ -508,7 +508,7 @@ def get_poll_status(request: HttpRequest, group_id: int):
         votes = Vote.objects.filter(recipe_group=recipe_group, current_poll_time=current_poll_time)
         user_count = recipe_group.django_group.user_set.count()
         vote_count = votes.count()
-        current_poll_time = datetime.datetime.fromisoformat(recipe_group.current_poll_time.strftime("%Y-%m-%d %H:%M:%S"))
+        current_poll_time = datetime.datetime.fromisoformat(current_poll_time.strftime("%Y-%m-%d %H:%M:%S"))
         current_time = datetime.datetime.now()
         poll_time_passed = current_poll_time < current_time
 
@@ -519,7 +519,8 @@ def get_poll_status(request: HttpRequest, group_id: int):
             message = {
                 "votes": vote_count,
                 "user_count": user_count,
-                "poll_time": recipe_group.current_poll_time
+                "poll_time": recipe_group.current_poll_time,
+                "summary": Generate_Poll_Summary(votes)
             }
             return HttpResponse(json.dumps(message, default=str), status=HTTPStatus.OK)
     except (ObjectDoesNotExist, MultipleObjectsReturned):
