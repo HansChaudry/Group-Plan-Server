@@ -29,7 +29,7 @@ SECRET_KEY = 'django-insecure-ur7xh!2x4c3!)r7ivr)o04*_qbtl$l&v4ugx($wo-ft5@a)z82
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['10.0.2.2', 'localhost', 'GroupPlan.pythonanywhere.com']
+ALLOWED_HOSTS = ['10.0.2.2', 'localhost', 'groupplan.azurewebsites.net']
 
 load_dotenv()
 
@@ -53,6 +53,7 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     "corsheaders.middleware.CorsMiddleware",
     'django.middleware.common.CommonMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     # 'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -133,7 +134,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT= os.path.join(BASE_DIR, 'static')
 
 # Default primary key field type
@@ -142,3 +143,6 @@ STATIC_ROOT= os.path.join(BASE_DIR, 'static')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS: True
+CSRF_TRUSTED_ORIGINS = [
+    'https://GroupPlanServer.wsgi.application'
+]
