@@ -503,7 +503,7 @@ def get_poll_status(request: HttpRequest, group_id: int):
         recipe_group: RecipeGroup = RecipeGroup.objects.get(id=group_id)
         current_poll_time = recipe_group.current_poll_time
         if not recipe_group.current_poll:
-            return HttpResponse(_create_message("Poll not active"), status=HTTPStatus.OK)
+            return HttpResponse(json.dumps(model_to_dict(recipe_group.current_recipe), default=str), status=HTTPStatus.OK)
 
         votes = Vote.objects.filter(recipe_group=recipe_group, current_poll_time=current_poll_time)
         user_count = recipe_group.django_group.user_set.count()
