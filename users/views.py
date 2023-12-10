@@ -48,7 +48,7 @@ def userLogOut(request):
     return HttpResponse(json.dumps({'message': 'User logged out'}))
 
 def userAuthorized(request: HttpRequest):
-    if request.method != 'GET':
+    if request.method != 'POST':
         return HttpResponse(_create_message("Bad Request"), status=HTTPStatus.METHOD_NOT_ALLOWED)
     
     if not request.user.is_authenticated:
